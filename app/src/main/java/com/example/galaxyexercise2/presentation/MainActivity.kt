@@ -6,67 +6,110 @@
 package com.example.galaxyexercise2.presentation
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.wear.compose.material.MaterialTheme
-import androidx.wear.compose.material.Text
-import androidx.wear.compose.material.TimeText
-import androidx.wear.tooling.preview.devices.WearDevices
+import android.util.Log
+import android.widget.Button
+import androidx.appcompat.app.AppCompatActivity
+import androidx.health.services.client.ExerciseClient
+import androidx.health.services.client.HealthServices
+import androidx.health.services.client.ExerciseUpdateCallback
+import androidx.health.services.client.data.*
+import androidx.health.services.client.endExercise
+import androidx.health.services.client.startExercise
+import androidx.lifecycle.lifecycleScope
 import com.example.galaxyexercise2.R
-import com.example.galaxyexercise2.presentation.theme.GalaxyExercise2Theme
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
+
+    private lateinit var exerciseClient: ExerciseClient
+    private lateinit var updateCallback: ExerciseUpdateCallback
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
-
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-        setTheme(android.R.style.Theme_DeviceDefault)
+        lifecycleScope.launch {
+            // ExerciseClient 초기화
+            exerciseClient = HealthServices.getClient(this@MainActivity).exerciseClient
+            // 콜백 등록
+            updateCallback = object : ExerciseUpdateCallback {
+                override fun onAvailabilityChanged(dataType: DataType<*, *>, availability: Availability) {}
 
-        setContent {
-            WearApp("Android")
+                override fun onExerciseUpdateReceived(update: ExerciseUpdate) {
+                    val heartRateData =
+                        update.latestMetrics.getData(DataType.HEART_RATE_BPM)
+
+                    if(heartRateData.isNotEmpty()){
+                        val bpm = heartRateData.last().value
+                        Log.d("SENSOR","Heart Rate: $bpm")
+                    }
+
+                    val speedData =
+                        update.latestMetrics.getData(DataType.SPEED)
+
+                    if(speedData.isNotEmpty()){
+                        val speed = speedData.last().value
+                        Log.d("SENSOR", "Speed: $speed")
+                    }
+
+                    val stepsData =
+                        update.latestMetrics.getData(DataType.STEPS)
+
+                    if(stepsData.isNotEmpty()){
+                        val step = stepsData.last().value
+                        Log.d("SENSOR", "Steps: $step")
+                    }
+                }
+
+                override fun onLapSummaryReceived(lapSummary: ExerciseLapSummary) {  }
+
+                override fun onRegistered() {}
+
+                override fun onRegistrationFailed(throwable: Throwable) {}
+            }
+
+            exerciseClient.setUpdateCallback(updateCallback)
+        }
+
+        findViewById<Button>(R.id.startButton).setOnClickListener {
+            startExercise()
+        }
+
+        findViewById<Button>(R.id.stopButton).setOnClickListener {
+            stopExercise()
         }
     }
-}
 
-@Composable
-fun WearApp(greetingName: String) {
-    GalaxyExercise2Theme {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colors.background),
-            contentAlignment = Alignment.Center
-        ) {
-            TimeText()
-            Greeting(greetingName = greetingName)
+    private fun startExercise() {
+        val config = ExerciseConfig.Builder(ExerciseType.WALKING)
+            .setDataTypes(
+                setOf(
+                    DataType.HEART_RATE_BPM,
+                    DataType.SPEED,
+                    DataType.STEPS
+                )
+            )
+            .build()
+
+        lifecycleScope.launch {
+            try {
+                exerciseClient.startExercise(config)
+                Log.d("EXERCISE", "운동 시작됨")
+            } catch (e: Exception) {
+                Log.e("EXERCISE", "운동 시작 실패: ${e.message}")
+            }
         }
     }
-}
 
-@Composable
-fun Greeting(greetingName: String) {
-    Text(
-        modifier = Modifier.fillMaxWidth(),
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colors.primary,
-        text = stringResource(R.string.hello_world, greetingName)
-    )
-}
-
-@Preview(device = WearDevices.SMALL_ROUND, showSystemUi = true)
-@Composable
-fun DefaultPreview() {
-    WearApp("Preview Android")
+    private fun stopExercise() {
+        lifecycleScope.launch {
+            try {
+                exerciseClient.endExercise()
+                Log.d("EXERCISE", "운동 종료됨")
+            } catch (e: Exception) {
+                Log.e("EXERCISE", "운동 종료 실패: ${e.message}")
+            }
+        }
+    }
 }
