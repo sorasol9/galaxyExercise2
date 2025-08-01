@@ -1,7 +1,9 @@
 package com.example.galaxyexercise2.presentation
 
+import android.annotation.SuppressLint
 import android.app.*
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.health.services.client.ExerciseClient
@@ -30,8 +32,39 @@ class SensorForegroundService : Service() {
     // 코루틴 스코프 생성
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
+    companion object {
+        private const val CHANNEL_ID = "SensorServiceChannel"
+        private const val NOTIFICATION_ID = 1
+    }
+
+    // 알림 채널 만드는 함수
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Sensor Data Service",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+
+    @SuppressLint("ForegroundServiceType")
     override fun onCreate() {
         super.onCreate()
+
+        createNotificationChannel()
+
+        //알림 만들고 startForeground 호출
+        val notification = Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("센서 데이터 전송 중")
+            .setContentText("MQTT를 통해 서버로 데이터를 전송 중입니다.")
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .build()
+
+        startForeground(NOTIFICATION_ID, notification)
         mqttPublisher = MqttPublisher(this)
         mqttPublisher.connect()
 
@@ -44,7 +77,7 @@ class SensorForegroundService : Service() {
                 val speedData = update.latestMetrics.getData(DataType.SPEED)
                 val stepsData = update.latestMetrics.getData(DataType.STEPS)
 
-                // 여기서 MQTT 전송도 가능:
+                // 여기서 MQTT 전송 가능:
                 sendSensorData(
                     heartRateData.lastOrNull()?.value,
                     speedData.lastOrNull()?.value,
