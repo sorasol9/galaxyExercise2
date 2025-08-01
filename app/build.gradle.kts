@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.example.galaxyexercise2"
-    compileSdk = 36
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.galaxyexercise2"
         minSdk = 34
-        targetSdk = 36
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -40,6 +40,9 @@ android {
 }
 
 dependencies {
+
+    //health service
+    implementation("androidx.health:health-services-client:1.1.0-beta01")
 
     implementation(libs.play.services.wearable)
     implementation(platform(libs.compose.bom))
