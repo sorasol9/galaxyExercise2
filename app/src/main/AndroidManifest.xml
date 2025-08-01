@@ -5,6 +5,9 @@
 
     <uses-feature android:name="android.hardware.type.watch" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <!-- 센서 권한 -->
     <uses-permission android:name="android.permission.BODY_SENSORS" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
@@ -16,6 +19,8 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
+        
+        <service android:name="org.eclipse.paho.android.service.MqttService"/>
         <uses-library
             android:name="com.google.android.wearable"
             android:required="true" />
