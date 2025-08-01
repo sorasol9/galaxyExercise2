@@ -1,58 +1,94 @@
 package com.example.galaxyexercise2.presentation
 
 import android.app.*
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import com.example.galaxyexercise2.presentation.MqttPublisher
-import org.json.JSONObject
+import androidx.health.services.client.ExerciseClient
+import androidx.health.services.client.ExerciseUpdateCallback
+import androidx.health.services.client.HealthServices
+import androidx.health.services.client.data.Availability
+import androidx.health.services.client.data.DataType
+import androidx.health.services.client.data.ExerciseConfig
+import androidx.health.services.client.data.ExerciseLapSummary
+import androidx.health.services.client.data.ExerciseType
+import androidx.health.services.client.data.ExerciseUpdate
+import androidx.health.services.client.endExercise
+import androidx.health.services.client.startExercise
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class SensorForegroundService : Service() {
 
-    companion object {
-        private const val CHANNEL_ID = "SensorServiceChannel"
-        private const val NOTIFICATION_ID = 1
-    }
-
+    private lateinit var exerciseClient: ExerciseClient
+    private lateinit var updateCallback: ExerciseUpdateCallback
     private lateinit var mqttPublisher: MqttPublisher
+
+    // 코루틴 스코프 생성
+    private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
-        val notification: Notification = Notification.Builder(this, CHANNEL_ID)
-            .setContentTitle("센서 데이터 전송 중")
-            .setContentText("MQTT를 통해 서버로 데이터를 전송합니다")
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+        mqttPublisher = MqttPublisher(this)
+        mqttPublisher.connect()
+
+        exerciseClient = HealthServices.getClient(this).exerciseClient
+        updateCallback = object : ExerciseUpdateCallback {
+            override fun onAvailabilityChanged(dataType: DataType<*, *>, availability: Availability) {}
+
+            override fun onExerciseUpdateReceived(update: ExerciseUpdate) {
+                val heartRateData = update.latestMetrics.getData(DataType.HEART_RATE_BPM)
+                val speedData = update.latestMetrics.getData(DataType.SPEED)
+                val stepsData = update.latestMetrics.getData(DataType.STEPS)
+
+                // 여기서 MQTT 전송도 가능:
+                sendSensorData(
+                    heartRateData.lastOrNull()?.value,
+                    speedData.lastOrNull()?.value,
+                    stepsData.lastOrNull()?.value
+                )
+            }
+
+            override fun onLapSummaryReceived(lapSummary: ExerciseLapSummary) {}
+
+            override fun onRegistered() {}
+
+            override fun onRegistrationFailed(throwable: Throwable) {
+                Log.e("SENSOR", "Callback 등록 실패", throwable)
+            }
+        }
+
+        exerciseClient.setUpdateCallback(updateCallback)
+
+        val config = ExerciseConfig.Builder(ExerciseType.WALKING)
+            .setDataTypes(setOf(DataType.HEART_RATE_BPM, DataType.SPEED, DataType.STEPS))
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        serviceScope.launch {
+            try {
+                exerciseClient.startExercise(config)
+                Log.d("EXERCISE", "운동 시작됨")
+            } catch (e: Exception) {
+                Log.e("EXERCISE", "운동 시작 실패", e)
+            }
+        }
 
-        mqttPublisher = MqttPublisher(this)
     }
 
-    fun sendSensorData(heartRate: Double?, speed: Double?, steps: Double?) {
-        val json = JSONObject().apply {
-            put("heartRate", heartRate)
-            put("speed", speed)
-            put("steps", steps)
-            put("timestamp", System.currentTimeMillis())
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel() // 코루틴 정리
+        mqttPublisher.disconnect()
+        serviceScope.launch {
+            exerciseClient.endExercise()
         }
-        mqttPublisher.publish("sensor/data", json.toString())
+    }
+    private fun sendSensorData(heartRate: Double?, speed: Double?, steps: Long?) {
+        mqttPublisher.publishSensorData(heartRate, speed, steps)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
-
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                CHANNEL_ID,
-                "Sensor Data Service Channel",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(serviceChannel)
-        }
-    }
 }
