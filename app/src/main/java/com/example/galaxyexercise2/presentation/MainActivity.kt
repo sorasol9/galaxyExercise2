@@ -7,6 +7,7 @@ package com.example.galaxyexercise2.presentation
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import androidx.activity.ComponentActivity
 import com.example.galaxyexercise2.R
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             stopService(Intent(this, SensorForegroundService::class.java))
+            Log.d("MAIN", "시작 버튼 눌림")
         }
     }
 }

@@ -10,7 +10,7 @@ import org.json.JSONObject
 class MqttPublisher(private val context: Context) {
 
     private lateinit var client: MqttAndroidClient
-    private val serverUri = "tcp://broker.hivemq.com:1883" // ← 필요 시 IP로 변경
+    private val serverUri = "tcp://192.168.233.1:1883" // ← 필요 시 IP로 변경
     private val topic = "sensor/data/sora9"
     private val clientId = "watch-client-" + UUID.randomUUID().toString()
 

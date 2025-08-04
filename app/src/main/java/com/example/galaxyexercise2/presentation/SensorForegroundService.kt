@@ -47,6 +47,7 @@ class SensorForegroundService : Service() {
             )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
+            Log.d("SERVICE", "NotificationChannel 생성됨")
         }
     }
 
@@ -54,6 +55,8 @@ class SensorForegroundService : Service() {
     @SuppressLint("ForegroundServiceType")
     override fun onCreate() {
         super.onCreate()
+
+        Log.d("SERVICE", "onCreate 시작됨")
 
         createNotificationChannel()
 
@@ -65,6 +68,8 @@ class SensorForegroundService : Service() {
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
+        Log.d("SERVICE", "startForeground 호출 완료")
+
         mqttPublisher = MqttPublisher(this)
         mqttPublisher.connect()
 

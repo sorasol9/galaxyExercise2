@@ -8,6 +8,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
 
     <!-- 센서 권한 -->
     <uses-permission android:name="android.permission.BODY_SENSORS" />
@@ -23,11 +24,18 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault">
         
-        <service android:name="org.eclipse.paho.android.service.MqttService"/>
+        <service android:name="org.eclipse.paho.android.service.MqttService"
+            android:enabled="true"
+            android:exported="true"/>
+
         <service android:name=".presentation.SensorForegroundService"
             android:exported="false"
-            android:foregroundServiceType="health|location"
+            android:foregroundServiceType="health"
             tools:ignore="ForegroundServicePermission" />
+        
+        <service android:name="org.eclipse.paho.android.service.MqttService"
+            android:enabled="true"
+            android:exported="true"/>
 
         <uses-library
             android:name="com.google.android.wearable"
